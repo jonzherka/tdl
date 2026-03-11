@@ -3,6 +3,7 @@ package forward
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/fatih/color"
 	pw "github.com/jedib0t/go-pretty/v6/progress"
@@ -15,8 +16,9 @@ import (
 
 type progress struct {
 	pw       pw.Writer
-	trackers map[tuple]*pw.Tracker // TODO(iyear): concurrent map
+	trackers map[tuple]*pw.Tracker
 	elemName map[int64]string
+	mu       sync.RWMutex
 }
 
 type tuple struct {
@@ -34,12 +36,18 @@ func newProgress(p pw.Writer) *progress {
 }
 
 func (p *progress) OnAdd(elem forwarder.Elem) {
-	tracker := prog.AppendTracker(p.pw, pw.FormatNumber, p.processMessage(elem, false), 1)
+	msg := p.processMessage(elem, false)
+	tracker := prog.AppendTracker(p.pw, pw.FormatNumber, msg, 1)
+
+	p.mu.Lock()
 	p.trackers[p.tuple(elem)] = tracker
+	p.mu.Unlock()
 }
 
 func (p *progress) OnClone(elem forwarder.Elem, state forwarder.ProgressState) {
+	p.mu.RLock()
 	tracker, ok := p.trackers[p.tuple(elem)]
+	p.mu.RUnlock()
 	if !ok {
 		return
 	}
@@ -52,7 +60,9 @@ func (p *progress) OnClone(elem forwarder.Elem, state forwarder.ProgressState) {
 }
 
 func (p *progress) OnDone(elem forwarder.Elem, err error) {
+	p.mu.RLock()
 	tracker, ok := p.trackers[p.tuple(elem)]
+	p.mu.RUnlock()
 	if !ok {
 		return
 	}
@@ -90,6 +100,7 @@ func (p *progress) processMessage(elem forwarder.Elem, clone bool) string {
 
 func (p *progress) metaString(elem forwarder.Elem) string {
 	// TODO(iyear): better responsive name
+	p.mu.Lock()
 	if _, ok := p.elemName[elem.From().ID()]; !ok {
 		p.elemName[elem.From().ID()] = runewidth.Truncate(elem.From().VisibleName(), 15, "...")
 	}
@@ -97,10 +108,13 @@ func (p *progress) metaString(elem forwarder.Elem) string {
 		p.elemName[elem.To().ID()] = runewidth.Truncate(elem.To().VisibleName(), 15, "...")
 	}
 
-	return fmt.Sprintf("%s(%d):%d -> %s(%d)",
+	s := fmt.Sprintf("%s(%d):%d -> %s(%d)",
 		p.elemName[elem.From().ID()],
 		elem.From().ID(),
 		elem.Msg().ID,
 		p.elemName[elem.To().ID()],
 		elem.To().ID())
+	p.mu.Unlock()
+
+	return s
 }
