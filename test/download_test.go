@@ -67,7 +67,7 @@ var _ = Describe("Test tdl download", FlakeAttempts(3), func() {
 
 	When("use url flag", func() {
 		It("should success", func() {
-			urls := make([]string, 0)
+			urls := make([]string, 0, len(remoteFiles)*2)
 			for _, u := range remoteFiles {
 				urls = append(urls, "-u", fmt.Sprintf("https://t.me/%d/%d", id, u))
 			}
