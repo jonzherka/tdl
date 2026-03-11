@@ -12,7 +12,6 @@ import (
 )
 
 type iterElem struct {
-	id         int // tracker id for progress tracking
 	logicalPos int // logical position for resume/finished tracking
 
 	from    peers.Peer
