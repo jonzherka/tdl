@@ -39,11 +39,11 @@ func newProgress(p pw.Writer, it *iter, opts Options) *progress {
 
 func (p *progress) OnAdd(elem downloader.Elem) {
 	tracker := prog.AppendTracker(p.pw, utils.Byte.FormatBinaryBytes, p.processMessage(elem), elem.File().Size())
-	p.trackers.Store(elem.(*iterElem).id, tracker)
+	p.trackers.Store(elem.(*iterElem).logicalPos, tracker)
 }
 
 func (p *progress) OnDownload(elem downloader.Elem, state downloader.ProgressState) {
-	tracker, ok := p.trackers.Load(elem.(*iterElem).id)
+	tracker, ok := p.trackers.Load(elem.(*iterElem).logicalPos)
 	if !ok {
 		return
 	}
@@ -56,7 +56,7 @@ func (p *progress) OnDownload(elem downloader.Elem, state downloader.ProgressSta
 func (p *progress) OnDone(elem downloader.Elem, err error) {
 	e := elem.(*iterElem)
 
-	tracker, ok := p.trackers.Load(e.id)
+	tracker, ok := p.trackers.Load(e.logicalPos)
 	if !ok {
 		return
 	}

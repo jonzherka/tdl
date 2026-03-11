@@ -62,8 +62,6 @@ type iter struct {
 	dialogIndex  int // physical position: current dialog in dialogs array
 	messageIndex int // physical position: current message in dialog.Messages array
 
-	// TODO(Hexa): counter is de facto not be used in the codebase, but I perfer to reserve it. The key point is whether it still needs to be atomic or not.
-	counter        *atomic.Int64
 	skippedDeleted *atomic.Int64 // count of skipped deleted messages
 	deletedIDs     []string      // IDs of deleted messages (format: "dialogID/messageID")
 	elem           chan downloader.Elem
@@ -111,7 +109,6 @@ func newIter(pool dcpool.Pool, manager *peers.Manager, dialog [][]*tmessage.Dial
 		logicalPos:     0,
 		dialogIndex:    0,
 		messageIndex:   0,
-		counter:        atomic.NewInt64(-1),
 		skippedDeleted: atomic.NewInt64(0),
 		deletedIDs:     make([]string, 0),
 		elem:           make(chan downloader.Elem, 10), // grouped message buffer
@@ -265,7 +262,6 @@ func (i *iter) processSingle(ctx context.Context, message *tg.Message, from peer
 	}
 
 	i.elem <- &iterElem{
-		id:         int(i.counter.Inc()),
 		logicalPos: logicalPos,
 
 		from:    from,
