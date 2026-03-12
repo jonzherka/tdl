@@ -233,8 +233,12 @@ func (i *iter) resolveThumb(path string) (*uploaderFile, error) {
 
 	// has thumbnail
 	mime, err := mimetype.DetectFile(path)
-	if err != nil || !mediautil.IsImage(mime.String()) { // TODO(iyear): jpg only
-		return nil, errors.Wrapf(err, "invalid thumbnail file: %v", path)
+	if err != nil {
+		return nil, errors.Wrapf(err, "detect thumbnail mime: %v", path)
+	}
+
+	if !mediautil.IsJPEG(mime.String()) {
+		return nil, errors.Errorf("invalid thumbnail file (only jpeg is supported): %v", path)
 	}
 
 	thumb, err := os.Open(path)
