@@ -3,6 +3,7 @@ package forward
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/fatih/color"
 	pw "github.com/jedib0t/go-pretty/v6/progress"
@@ -15,8 +16,8 @@ import (
 
 type progress struct {
 	pw       pw.Writer
-	trackers map[tuple]*pw.Tracker // TODO(iyear): concurrent map
-	elemName map[int64]string
+	trackers *sync.Map // map[tuple]*pw.Tracker
+	elemName *sync.Map // map[int64]string
 }
 
 type tuple struct {
@@ -28,21 +29,22 @@ type tuple struct {
 func newProgress(p pw.Writer) *progress {
 	return &progress{
 		pw:       p,
-		trackers: make(map[tuple]*pw.Tracker),
-		elemName: make(map[int64]string),
+		trackers: &sync.Map{},
+		elemName: &sync.Map{},
 	}
 }
 
 func (p *progress) OnAdd(elem forwarder.Elem) {
 	tracker := prog.AppendTracker(p.pw, pw.FormatNumber, p.processMessage(elem, false), 1)
-	p.trackers[p.tuple(elem)] = tracker
+	p.trackers.Store(p.tuple(elem), tracker)
 }
 
 func (p *progress) OnClone(elem forwarder.Elem, state forwarder.ProgressState) {
-	tracker, ok := p.trackers[p.tuple(elem)]
+	val, ok := p.trackers.Load(p.tuple(elem))
 	if !ok {
 		return
 	}
+	tracker := val.(*pw.Tracker)
 
 	// display re-upload transfer info
 	tracker.Units.Formatter = utils.Byte.FormatBinaryBytes
@@ -52,10 +54,11 @@ func (p *progress) OnClone(elem forwarder.Elem, state forwarder.ProgressState) {
 }
 
 func (p *progress) OnDone(elem forwarder.Elem, err error) {
-	tracker, ok := p.trackers[p.tuple(elem)]
+	val, ok := p.trackers.Load(p.tuple(elem))
 	if !ok {
 		return
 	}
+	tracker := val.(*pw.Tracker)
 
 	if err != nil {
 		p.pw.Log(color.RedString("%s error: %s", p.metaString(elem), err.Error()))
@@ -90,17 +93,16 @@ func (p *progress) processMessage(elem forwarder.Elem, clone bool) string {
 
 func (p *progress) metaString(elem forwarder.Elem) string {
 	// TODO(iyear): better responsive name
-	if _, ok := p.elemName[elem.From().ID()]; !ok {
-		p.elemName[elem.From().ID()] = runewidth.Truncate(elem.From().VisibleName(), 15, "...")
-	}
-	if _, ok := p.elemName[elem.To().ID()]; !ok {
-		p.elemName[elem.To().ID()] = runewidth.Truncate(elem.To().VisibleName(), 15, "...")
-	}
+	fromID := elem.From().ID()
+	fromName, _ := p.elemName.LoadOrStore(fromID, runewidth.Truncate(elem.From().VisibleName(), 15, "..."))
+
+	toID := elem.To().ID()
+	toName, _ := p.elemName.LoadOrStore(toID, runewidth.Truncate(elem.To().VisibleName(), 15, "..."))
 
 	return fmt.Sprintf("%s(%d):%d -> %s(%d)",
-		p.elemName[elem.From().ID()],
-		elem.From().ID(),
+		fromName.(string),
+		fromID,
 		elem.Msg().ID,
-		p.elemName[elem.To().ID()],
-		elem.To().ID())
+		toName.(string),
+		toID)
 }
