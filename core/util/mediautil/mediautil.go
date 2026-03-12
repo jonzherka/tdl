@@ -36,6 +36,10 @@ func IsImage(mime string) bool {
 	return primary == "image" && ok
 }
 
+func IsJPEG(mime string) bool {
+	return mime == "image/jpeg"
+}
+
 // GetMP4Info returns duration, width, height, error
 func GetMP4Info(r io.ReadSeeker) (int, int, int, error) {
 	d := mp4.CreateMp4Demuxer(r)
