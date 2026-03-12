@@ -99,11 +99,19 @@ func serve(ctx context.Context,
 		return nil
 	}))
 
-	items := make([]string, 0)
+	totalMessages := 0
 	for _, dialog := range dialogs {
 		for _, d := range dialog {
+			totalMessages += len(d.Messages)
+		}
+	}
+
+	items := make([]string, 0, totalMessages)
+	for _, dialog := range dialogs {
+		for _, d := range dialog {
+			peerID := strconv.FormatInt(tutil.GetInputPeerID(d.Peer), 10)
 			for _, m := range d.Messages {
-				items = append(items, fmt.Sprintf("%d/%d", tutil.GetInputPeerID(d.Peer), m))
+				items = append(items, peerID+"/"+strconv.Itoa(m))
 			}
 		}
 	}
